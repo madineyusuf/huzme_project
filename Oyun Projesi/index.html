@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>HUZME 🦋</title>
+    <link href="https://fonts.googleapis.com/css2?family=Zeyada&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+        canvas { background: #fff; border: 1px solid #333; width: 1000px; height: 600px; }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    // --- OYUN AYARLARI VE DEĞİŞKENLER ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = 1000 * dpr; canvas.height = 600 * dpr;
+    ctx.scale(dpr, dpr);
+
+    // İkinci bir katman (maske) için geçici canvas
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 1000 * dpr; tempCanvas.height = 600 * dpr;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.scale(dpr, dpr);
+
+    // --- GÖRSEL VE SES VARLIKLARI ---
+    const assets = {
+        intro: new Image(), roomRenkli: new Image(), roomSiyah: new Image(),
+        kelebek: new Image(), hero: new Image()
+    };
+    // Dosya yollarını README'deki klasör yapına göre ayarla
+    assets.intro.src = 'images/giris.png';
+    assets.roomRenkli.src = 'images/renkli.png';
+    assets.roomSiyah.src = 'images/siyah.png';
+    assets.kelebek.src = 'images/kelebek.png';
+    assets.hero.src = 'images/hero.png';
+
+    const sounds = {
+        click: new Audio('sounds/click.mp3'),
+        transform: new Audio('sounds/transform.mp3'),
+        bg: new Audio('sounds/harp.mp3')
+    };
+    sounds.bg.loop = true;
+
+    // --- OYUN AKIŞI (AKTLAR) ---
+    const acts = [
+        {
+            target: "yasamak sakaya gelmez",
+            author: "Nazım Hikmet",
+            dialogue: "Zihnim çok karanlık... Bir yerden başlamalıyım.",
+            trigger: { x: 205, y: 302, w: 67, h: 38 }, // Kitap konumu
+            colorRect: { x: 0, y: 300, w: 288, h: 300 } // Boyanacak alan
+        },
+        {
+            target: "sevelim sevilelim",
+            author: "Yunus Emre",
+            dialogue: "Bu tablo... Ailem. Onların sevgisi benim köklerim.",
+            trigger: { x: 450, y: 100, w: 100, h: 80 }, // Tablo konumu
+            colorRect: { x: 400, y: 50, w: 300, h: 200 }
+        }
+    ];
+
+    let currentActIndex = 0;
+    let gameState = "MENU";
+    let isDrawing = false, puzzleActive = false, puzzleCompleted = false;
+    let kelebek = { x: 390, y: 143, speed: 5 };
+    let lassoPoints = [], letters = [], collectedInBox = [];
+    let lassoInk = 100, lassoCount = 8, textAlpha = 0;
+    let illuminatedAreas = []; // Kalıcı olarak renklenen bölgeler
+
+    // --- LASSO (KEMENT) ALGORİTMASI ---
+    function isPointInLasso(x, y, points) {
+        let inside = false;
+        for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+            let xi = points[i].x, yi = points[i].y;
+            let xj = points[j].x, yj = points[j].y;
+            let intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    // --- HARF ÜRETİCİ (GRID SİSTEMİ) ---
+    function generateLetters() {
+        letters = [];
+        const target = acts[currentActIndex].target.replace(/\s/g, '');
+        const pool = (target + "abcde").split('');
+        for (let i = 0; i < 5; i++) {
+            for (let j = 0; j < 4; j++) {
+                letters.push({
+                    x: 730 + (i * 45), y: 300 + (j * 35),
+                    char: pool[Math.floor(Math.random() * pool.length)],
+                    isFound: false
+                });
+            }
+        }
+    }
+
+    // --- GİRDİ KONTROLLERİ ---
+    window.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            if (gameState === "MENU") { gameState = "ROOM"; sounds.bg.play(); }
+            else if (isAtTrigger() && !puzzleActive) { 
+                puzzleActive = true; 
+                generateLetters(); 
+            }
+        }
+    });
+
+    canvas.addEventListener('mousedown', () => {
+        if (puzzleActive && lassoCount > 0) { isDrawing = true; lassoPoints = []; }
+    });
+
+    canvas.addEventListener('mousemove', e => {
+        const r = canvas.getBoundingClientRect();
+        const mx = e.clientX - r.left, my = e.clientY - r.top;
+        if (isDrawing && lassoInk > 0) {
+            lassoPoints.push({x: mx, y: my});
+            lassoInk -= 0.5;
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (isDrawing) {
+            isDrawing = false;
+            let found = false;
+            letters.forEach(l => {
+                if (!l.isFound && isPointInLasso(l.x, l.y, lassoPoints)) {
+                    if (acts[currentActIndex].target.includes(l.char)) {
+                        l.isFound = true; found = true;
+                        collectedInBox.push(l.char);
+                        sounds.click.play();
+                    }
+                }
+            });
+            if (!found) lassoCount--;
+            checkWin();
+        }
+    });
+
+    function isAtTrigger() {
+        const t = acts[currentActIndex].trigger;
+        return kelebek.x > t.x && kelebek.x < t.x + t.w && kelebek.y > t.y && kelebek.y < t.y + t.h;
+    }
+
+    function checkWin() {
+        const needed = [...new Set(acts[currentActIndex].target.replace(/\s/g, ''))];
+        if (needed.every(char => collectedInBox.includes(char))) {
+            puzzleCompleted = true; puzzleActive = false;
+            sounds.transform.play();
+            illuminatedAreas.push(acts[currentActIndex].colorRect);
+            setTimeout(() => {
+                if (currentActIndex < acts.length - 1) {
+                    currentActIndex++; puzzleCompleted = false; collectedInBox = [];
+                    lassoCount = 8; textAlpha = 0;
+                }
+            }, 4000);
+        }
+    }
+
+    // --- ANA ÇİZİM DÖNGÜSÜ ---
+    function mainLoop() {
+        ctx.clearRect(0, 0, 1000, 600);
+        if (gameState === "MENU") drawMenu();
+        else drawRoom();
+        requestAnimationFrame(mainLoop);
+    }
+
+    function drawRoom() {
+        // 1. Katman: Renkli Dünya
+        ctx.drawImage(assets.roomRenkli, 0, 0, 1000, 600);
+        
+        // 2. Katman: Karanlık Maske
+        tempCtx.clearRect(0, 0, 1000, 600);
+        tempCtx.drawImage(assets.roomSiyah, 0, 0, 1000, 600);
+        tempCtx.globalCompositeOperation = 'destination-out';
+        
+        // Işık Huzmesi (Kelebek ışığı)
+        if (!puzzleCompleted) {
+            tempCtx.beginPath(); tempCtx.arc(kelebek.x, kelebek.y, 80, 0, Math.PI*2); tempCtx.fill();
+            updateKelebek();
+        }
+        // Kalıcı aydınlanan alanlar
+        illuminatedAreas.forEach(a => tempCtx.fillRect(a.x, a.y, a.w, a.h));
+        
+        tempCtx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(tempCanvas, 0, 0, 1000, 600);
+
+        // Karakterler
+        if (puzzleCompleted) ctx.drawImage(assets.hero, 150, 240, 350, 350);
+        else ctx.drawImage(assets.kelebek, kelebek.x - 185, kelebek.y - 178, 400, 400);
+
+        drawDialogue();
+        drawPuzzle();
+    }
+
+    function updateKelebek() {
+        const k = kelebek;
+        if (keys['w'] && k.y > 30) k.y -= k.speed;
+        if (keys['s'] && k.y < 480) k.y += k.speed;
+        if (keys['a'] && k.x > 20) k.x -= k.speed;
+        if (keys['d'] && k.x < 620) k.x += k.speed;
+    }
+
+    function drawDialogue() {
+        if (puzzleCompleted) return;
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; ctx.fillRect(0, 540, 670, 100);
+        if (textAlpha < 1) textAlpha += 0.01;
+        ctx.globalAlpha = textAlpha; ctx.fillStyle = "#000"; ctx.font = "24px 'Zeyada'";
+        ctx.fillText(acts[currentActIndex].dialogue, 20, 580);
+        ctx.restore();
+    }
+
+    function drawPuzzle() {
+        if (!puzzleActive) return;
+        const act = acts[currentActIndex];
+        ctx.save();
+        // Harf Havuzu Çizimi
+        ctx.font = "22px 'Zeyada'"; ctx.textAlign = "center";
+        letters.forEach(l => { if (!l.isFound) ctx.fillText(l.char, l.x, l.y); });
+        
+        // Lasso Çizgisi
+        if (isDrawing && lassoPoints.length > 2) {
+            ctx.beginPath(); ctx.strokeStyle = "#2980b9"; ctx.setLineDash([5, 5]);
+            ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+            lassoPoints.forEach(p => ctx.lineTo(p.x, p.y)); ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function drawMenu() {
+        ctx.drawImage(assets.intro, 0, 0, 1000, 600);
+        ctx.font = "60px 'Zeyada'"; ctx.textAlign = "center"; ctx.fillText("HUZME", 500, 80);
+    }
+
+    mainLoop();
+</script>
+</body>
+</html>
