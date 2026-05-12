@@ -3,7 +3,7 @@
 Bu projem, BTÜ Bilgisayar Mühendisliği bölümü Web Tabanlı Programlama dersi kapsamında geliştirilen, HTML5 Canvas ve JavaScript kullanılarak kodlanmış bir etkileşimli anlatı oyunudur
 
 ## 🔗 Canlı Demo
-[Oyunun Linki - 
+Oyunun Linki -  https://madineyusuf.github.io/huzme_project/index.html
 
 ## 🎮 Referans Oyun ve Mekanik
 - **Referans Oyunlar:** [Love Letters] ve [One Day Better]
