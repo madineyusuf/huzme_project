@@ -2,36 +2,28 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>HUZME 🦋</title>
+    <title>Huzme - Pearl Project</title>
     <link href="https://fonts.googleapis.com/css2?family=Zeyada&display=swap" rel="stylesheet">
     <style>
         body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
-        canvas { background: #fff; border: 1px solid #333; width: 1000px; height: 600px; }
+        canvas { background: #fff; border: 1px solid #333; width: 1000px; height: 600px; cursor: crosshair; }
     </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
 
 <script>
-    // --- OYUN AYARLARI VE DEĞİŞKENLER ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     canvas.width = 1000 * dpr; canvas.height = 600 * dpr;
     ctx.scale(dpr, dpr);
 
-    // İkinci bir katman (maske) için geçici canvas
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = 1000 * dpr; tempCanvas.height = 600 * dpr;
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.scale(dpr, dpr);
-
-    // --- GÖRSEL VE SES VARLIKLARI ---
+    // --- РЕСУРСЫ ---
     const assets = {
         intro: new Image(), roomRenkli: new Image(), roomSiyah: new Image(),
         kelebek: new Image(), hero: new Image()
     };
-    // Dosya yollarını README'deki klasör yapına göre ayarla
     assets.intro.src = 'images/giris.png';
     assets.roomRenkli.src = 'images/renkli.png';
     assets.roomSiyah.src = 'images/siyah.png';
@@ -39,59 +31,60 @@
     assets.hero.src = 'images/hero.png';
 
     const sounds = {
-        click: new Audio('sounds/click.mp3'),
-        transform: new Audio('sounds/transform.mp3'),
-        bg: new Audio('sounds/harp.mp3')
+        click: new Audio('sounds/button-click-high-short-close.mp3'),
+        transform: new Audio('sounds/magic-spells-with-harp-and-chimes_gjimere_.mp3'),
+        bg: new Audio('sounds/the-sound-of-the-harp.mp3')
     };
     sounds.bg.loop = true;
 
-    // --- OYUN AKIŞI (AKTLAR) ---
+    // --- АКТЫ И НАДПИСИ ---
     const acts = [
         {
             target: "yasamak sakaya gelmez",
-            author: "Nazım Hikmet",
-            dialogue: "Zihnim çok karanlık... Bir yerden başlamalıyım.",
-            trigger: { x: 205, y: 302, w: 67, h: 38 }, // Kitap konumu
-            colorRect: { x: 0, y: 300, w: 288, h: 300 } // Boyanacak alan
+            secondLine: "Büyük bir ciddiyetle yaşayacaksın",
+            poet: "Nazım Hikmet",
+            triggerPos: { x: 205, y: 302, w: 67, h: 38 },
+            dialogue: "-Düşüncelerim karmakarışık... Nereden başlamalıyım?",
+            colorRect: { x: 0, y: 300, w: 288, h: 300 }
         },
         {
             target: "sevelim sevilelim",
-            author: "Yunus Emre",
-            dialogue: "Bu tablo... Ailem. Onların sevgisi benim köklerim.",
-            trigger: { x: 450, y: 100, w: 100, h: 80 }, // Tablo konumu
-            colorRect: { x: 400, y: 50, w: 300, h: 200 }
+            secondLine: "Dünya kimseye kalmaz",
+            poet: "Yunus Emre",
+            triggerPos: { x: 450, y: 100, w: 120, h: 100 },
+            dialogue: "-Bu tablo... Ailem. Onların sevgisi benim köklerim.",
+            colorRect: { x: 400, y: 50, w: 300, h: 250 }
         }
     ];
 
-    let currentActIndex = 0;
-    let gameState = "MENU";
-    let isDrawing = false, puzzleActive = false, puzzleCompleted = false;
+    // --- СОСТОЯНИЕ ---
+    let currentAct = 0;
+    let gameState = "MENU"; 
+    let puzzleActive = false, puzzleCompleted = false, showHelp = false;
     let kelebek = { x: 390, y: 143, speed: 5 };
-    let lassoPoints = [], letters = [], collectedInBox = [];
-    let lassoInk = 100, lassoCount = 8, textAlpha = 0;
-    let illuminatedAreas = []; // Kalıcı olarak renklenen bölgeler
+    let mouse = { x: 0, y: 0 }, keys = {}, textAlpha = 0;
+    let letters = [], lassoPoints = [], isDrawing = false;
+    let collectedInBox = [], lassoCount = 8, timeLeft = 180;
+    let illuminatedAreas = [];
 
-    // --- LASSO (KEMENT) ALGORİTMASI ---
-    function isPointInLasso(x, y, points) {
-        let inside = false;
-        for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-            let xi = points[i].x, yi = points[i].y;
-            let xj = points[j].x, yj = points[j].y;
-            let intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-            if (intersect) inside = !inside;
-        }
-        return inside;
-    }
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 1000 * dpr; tempCanvas.height = 600 * dpr;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.scale(dpr, dpr);
 
-    // --- HARF ÜRETİCİ (GRID SİSTEMİ) ---
+    // --- ЛОГИКА ---
     function generateLetters() {
         letters = [];
-        const target = acts[currentActIndex].target.replace(/\s/g, '');
-        const pool = (target + "abcde").split('');
+        const act = acts[currentAct];
+        const targetClean = act.target.replace(/\s/g, '');
+        const pool = (targetClean + "abcde").split('');
+        
+        // Сетка 5x4 для равномерного разброса
         for (let i = 0; i < 5; i++) {
             for (let j = 0; j < 4; j++) {
                 letters.push({
-                    x: 730 + (i * 45), y: 300 + (j * 35),
+                    x: 735 + (i * 45),
+                    y: 300 + (j * 35),
                     char: pool[Math.floor(Math.random() * pool.length)],
                     isFound: false
                 });
@@ -99,69 +92,80 @@
         }
     }
 
-    // --- GİRDİ KONTROLLERİ ---
+    function isPointInLasso(x, y, points) {
+        let inside = false;
+        for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+            if (((points[i].y > y) !== (points[j].y > y)) && (x < (points[j].x - points[i].x) * (y - points[i].y) / (points[j].y - points[i].y) + points[i].x)) inside = !inside;
+        }
+        return inside;
+    }
+
+    // --- СОБЫТИЯ ---
     window.addEventListener('keydown', e => {
+        keys[e.key.toLowerCase()] = true;
         if (e.key === 'Enter') {
             if (gameState === "MENU") { gameState = "ROOM"; sounds.bg.play(); }
-            else if (isAtTrigger() && !puzzleActive) { 
-                puzzleActive = true; 
-                generateLetters(); 
-            }
+            else if (isAtTrigger() && !puzzleActive) { puzzleActive = true; generateLetters(); }
         }
     });
 
-    canvas.addEventListener('mousedown', () => {
-        if (puzzleActive && lassoCount > 0) { isDrawing = true; lassoPoints = []; }
-    });
+    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
     canvas.addEventListener('mousemove', e => {
         const r = canvas.getBoundingClientRect();
-        const mx = e.clientX - r.left, my = e.clientY - r.top;
-        if (isDrawing && lassoInk > 0) {
-            lassoPoints.push({x: mx, y: my});
-            lassoInk -= 0.5;
+        mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
+        if (isDrawing) lassoPoints.push({x: mouse.x, y: mouse.y});
+    });
+
+    canvas.addEventListener('mousedown', () => {
+        // Проверка клика по инструкции (?)
+        if (mouse.x > 940 && mouse.y < 60) {
+            showHelp = !showHelp;
+            return;
         }
+        if (showHelp) { showHelp = false; return; }
+
+        if (puzzleActive && lassoCount > 0) { isDrawing = true; lassoPoints = []; }
     });
 
     window.addEventListener('mouseup', () => {
         if (isDrawing) {
             isDrawing = false;
-            let found = false;
+            let foundAny = false;
             letters.forEach(l => {
                 if (!l.isFound && isPointInLasso(l.x, l.y, lassoPoints)) {
-                    if (acts[currentActIndex].target.includes(l.char)) {
-                        l.isFound = true; found = true;
+                    if (acts[currentAct].target.includes(l.char)) {
+                        l.isFound = true; foundAny = true;
                         collectedInBox.push(l.char);
                         sounds.click.play();
                     }
                 }
             });
-            if (!found) lassoCount--;
+            if (!foundAny) lassoCount--;
             checkWin();
         }
     });
 
     function isAtTrigger() {
-        const t = acts[currentActIndex].trigger;
+        const t = acts[currentAct].triggerPos;
         return kelebek.x > t.x && kelebek.x < t.x + t.w && kelebek.y > t.y && kelebek.y < t.y + t.h;
     }
 
     function checkWin() {
-        const needed = [...new Set(acts[currentActIndex].target.replace(/\s/g, ''))];
+        const needed = [...new Set(acts[currentAct].target.replace(/\s/g, ''))];
         if (needed.every(char => collectedInBox.includes(char))) {
             puzzleCompleted = true; puzzleActive = false;
             sounds.transform.play();
-            illuminatedAreas.push(acts[currentActIndex].colorRect);
+            illuminatedAreas.push(acts[currentAct].colorRect);
             setTimeout(() => {
-                if (currentActIndex < acts.length - 1) {
-                    currentActIndex++; puzzleCompleted = false; collectedInBox = [];
-                    lassoCount = 8; textAlpha = 0;
-                }
+                if (currentAct < acts.length - 1) {
+                    currentAct++; puzzleCompleted = false; collectedInBox = []; lassoCount = 8; textAlpha = 0;
+                } else { gameState = "FINISH"; }
             }, 4000);
         }
     }
 
-    // --- ANA ÇİZİM DÖNGÜSÜ ---
+    // --- ОТРИСОВКА ---
     function mainLoop() {
         ctx.clearRect(0, 0, 1000, 600);
         if (gameState === "MENU") drawMenu();
@@ -169,72 +173,123 @@
         requestAnimationFrame(mainLoop);
     }
 
+    function drawMenu() {
+        if (introImage.complete) ctx.drawImage(assets.intro, 0, 0, 1000, 600);
+        const over = (mouse.x > 405 && mouse.x < 595 && mouse.y > 300 && mouse.y < 348);
+        ctx.fillStyle = over ? "#B2D8B2" : "#D3D3D3";
+        drawRoundedRect(ctx, 405, 300, 190, 48, 15); ctx.fill();
+        ctx.fillStyle = "black"; ctx.font = "32px 'Zeyada'"; ctx.textAlign = "center";
+        ctx.fillText("BAŞLA", 500, 335);
+    }
+
     function drawRoom() {
-        // 1. Katman: Renkli Dünya
         ctx.drawImage(assets.roomRenkli, 0, 0, 1000, 600);
         
-        // 2. Katman: Karanlık Maske
         tempCtx.clearRect(0, 0, 1000, 600);
         tempCtx.drawImage(assets.roomSiyah, 0, 0, 1000, 600);
         tempCtx.globalCompositeOperation = 'destination-out';
         
-        // Işık Huzmesi (Kelebek ışığı)
         if (!puzzleCompleted) {
             tempCtx.beginPath(); tempCtx.arc(kelebek.x, kelebek.y, 80, 0, Math.PI*2); tempCtx.fill();
             updateKelebek();
         }
-        // Kalıcı aydınlanan alanlar
         illuminatedAreas.forEach(a => tempCtx.fillRect(a.x, a.y, a.w, a.h));
         
         tempCtx.globalCompositeOperation = 'source-over';
         ctx.drawImage(tempCanvas, 0, 0, 1000, 600);
 
-        // Karakterler
-        if (puzzleCompleted) ctx.drawImage(assets.hero, 150, 240, 350, 350);
-        else ctx.drawImage(assets.kelebek, kelebek.x - 185, kelebek.y - 178, 400, 400);
+        if (puzzleCompleted) {
+            ctx.drawImage(assets.hero, 150, 240, 350, 350);
+        } else {
+            // СВЕЧЕНИЕ ПРЕДМЕТА
+            if (isAtTrigger()) {
+                ctx.save();
+                ctx.shadowBlur = 20; ctx.shadowColor = "#B2D8B2";
+                ctx.fillStyle = "rgba(178, 216, 178, 0.5)";
+                const t = acts[currentAct].triggerPos;
+                ctx.beginPath(); ctx.arc(t.x + t.w/2, t.y + t.h/2, 40, 0, Math.PI*2); ctx.fill();
+                ctx.restore();
+            }
+            ctx.drawImage(assets.kelebek, kelebek.x - 185, kelebek.y - 178, 400, 400);
+        }
 
         drawDialogue();
         drawPuzzle();
+        drawUI();
     }
 
     function updateKelebek() {
-        const k = kelebek;
-        if (keys['w'] && k.y > 30) k.y -= k.speed;
-        if (keys['s'] && k.y < 480) k.y += k.speed;
-        if (keys['a'] && k.x > 20) k.x -= k.speed;
-        if (keys['d'] && k.x < 620) k.x += k.speed;
+        if (keys['w'] && kelebek.y > 30) kelebek.y -= kelebek.speed;
+        if (keys['s'] && kelebek.y < 480) kelebek.y += kelebek.speed;
+        if (keys['a'] && kelebek.x > 20) kelebek.x -= kelebek.speed;
+        if (keys['d'] && kelebek.x < 620) kelebek.x += kelebek.speed;
     }
 
     function drawDialogue() {
         if (puzzleCompleted) return;
         ctx.save();
-        ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; ctx.fillRect(0, 540, 670, 100);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; ctx.fillRect(0, 550, 670, 100);
         if (textAlpha < 1) textAlpha += 0.01;
-        ctx.globalAlpha = textAlpha; ctx.fillStyle = "#000"; ctx.font = "24px 'Zeyada'";
-        ctx.fillText(acts[currentActIndex].dialogue, 20, 580);
+        ctx.globalAlpha = textAlpha; ctx.fillStyle = "black"; ctx.font = "22px 'Zeyada'";
+        ctx.textAlign = "left"; ctx.fillText(acts[currentAct].dialogue, 20, 580);
         ctx.restore();
     }
 
     function drawPuzzle() {
         if (!puzzleActive) return;
-        const act = acts[currentActIndex];
         ctx.save();
-        // Harf Havuzu Çizimi
-        ctx.font = "22px 'Zeyada'"; ctx.textAlign = "center";
+        ctx.font = "24px 'Zeyada'"; ctx.fillStyle = "black"; ctx.textAlign = "center";
+        let disp = "";
+        for(let c of acts[currentAct].target) {
+            if (c === " ") disp += "  ";
+            else disp += (collectedInBox.includes(c) ? c : "_") + " ";
+        }
+        ctx.fillText(disp, 840, 100);
+        ctx.font = "16px 'Zeyada'"; ctx.fillText(acts[currentAct].secondLine, 840, 130);
+        ctx.textAlign = "right"; ctx.fillText("- " + acts[currentAct].poet, 950, 160);
+
+        // БУКВЫ
+        ctx.font = "20px 'Zeyada'"; ctx.textAlign = "center";
         letters.forEach(l => { if (!l.isFound) ctx.fillText(l.char, l.x, l.y); });
-        
-        // Lasso Çizgisi
+
+        // ЛАССО
         if (isDrawing && lassoPoints.length > 2) {
-            ctx.beginPath(); ctx.strokeStyle = "#2980b9"; ctx.setLineDash([5, 5]);
+            ctx.beginPath(); ctx.strokeStyle = "rgba(41, 128, 185, 0.7)"; 
+            ctx.setLineDash([5, 5]); ctx.lineWidth = 3;
             ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
             lassoPoints.forEach(p => ctx.lineTo(p.x, p.y)); ctx.stroke();
         }
         ctx.restore();
     }
 
-    function drawMenu() {
-        ctx.drawImage(assets.intro, 0, 0, 1000, 600);
-        ctx.font = "60px 'Zeyada'"; ctx.textAlign = "center"; ctx.fillText("HUZME", 500, 80);
+    function drawUI() {
+        ctx.fillStyle = "black"; ctx.font = "30px Arial"; ctx.textAlign = "center";
+        ctx.fillText("?", 960, 45); // Кнопка помощи
+        
+        if (puzzleActive) {
+            ctx.font = "26px 'Zeyada'"; ctx.fillText(lassoCount, 720, 45); // Попытки
+            drawRoundedRect(ctx, 733, 443, 88, 53, 5); ctx.stroke(); // Коробка
+            ctx.font = "18px Arial"; ctx.fillText(collectedInBox.slice(-5).join(""), 777, 475);
+        }
+
+        if (showHelp) {
+            ctx.save();
+            ctx.fillStyle = "rgba(255,255,255,0.95)";
+            drawRoundedRect(ctx, 300, 150, 400, 300, 20); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "black"; ctx.font = "24px Arial";
+            ctx.fillText("ИНСТРУКЦИЯ", 500, 200);
+            ctx.font = "18px Arial";
+            ctx.fillText("Обводите лассо нужные буквы.", 500, 250);
+            ctx.fillText("Каждое неверное движение тратит лассо.", 500, 280);
+            ctx.fillText("[Кликните, чтобы закрыть]", 500, 420);
+            ctx.restore();
+        }
+    }
+
+    function drawRoundedRect(c, x, y, w, h, r) {
+        c.beginPath(); c.moveTo(x+r, y); c.lineTo(x+w-r, y); c.quadraticCurveTo(x+w, y, x+w, y+r);
+        c.lineTo(x+w, y+h-r); c.quadraticCurveTo(x+w, y+h, x+w-r, y+h); c.lineTo(x+r, y+h);
+        c.quadraticCurveTo(x, y+h, x, y+h-r); c.lineTo(x, y+r); c.quadraticCurveTo(x, y, x+r, y); c.closePath();
     }
 
     mainLoop();
