@@ -11,7 +11,6 @@
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
-
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -37,34 +36,40 @@
     };
     sounds.bg.loop = true;
 
-    // --- АКТЫ И НАДПИСИ ---
+    // --- СИСТЕМА АКТов ---
+    let currentAct = 0;
     const acts = [
-        {
+        {   // Акт 1: Книга
             target: "yasamak sakaya gelmez",
-            secondLine: "Büyük bir ciddiyetle yaşayacaksın",
-            poet: "Nazım Hikmet",
-            triggerPos: { x: 205, y: 302, w: 67, h: 38 },
+            full: "Yaşamak şakaya gelmez Büyük bir ciddiyetle yaşayacaksın",
+            author: "Nazım Hikmet",
+            obj: {x:205, y:302, w:67, h:38},
             dialogue: "-Düşüncelerim karmakarışık... Nereden başlamalıyım?",
-            colorRect: { x: 0, y: 300, w: 288, h: 300 }
+            colorArea: {x:0, y:300, w:288, h:300}
         },
-        {
+        {   // Акт 2: Картина
             target: "sevelim sevilelim",
-            secondLine: "Dünya kimseye kalmaz",
-            poet: "Yunus Emre",
-            triggerPos: { x: 450, y: 100, w: 120, h: 100 },
+            full: "Sevelim sevilelim, Dünya kimseye kalmaz",
+            author: "Yunus Emre",
+            obj: {x:350, y:150, w:80, h:60},
             dialogue: "-Bu tablo... Ailem. Onların sevgisi benim köklerim.",
-            colorRect: { x: 400, y: 50, w: 300, h: 250 }
+            colorArea: {x:300, y:100, w:200, h:150}
+        },
+        {   // Акт 3: Телефон
+            target: "sizi cok seviyorum",
+            full: "Sizi çok seviyorum",
+            author: "",
+            obj: {x:500, y:400, w:50, h:50},
+            dialogue: "-Sesinizi duymaya ihtiyacım var.",
+            colorArea: {x:450, y:350, w:150, h:150}
         }
     ];
 
     // --- СОСТОЯНИЕ ---
-    let currentAct = 0;
-    let gameState = "MENU"; 
-    let puzzleActive = false, puzzleCompleted = false, showHelp = false;
-    let kelebek = { x: 390, y: 143, speed: 5 };
-    let mouse = { x: 0, y: 0 }, keys = {}, textAlpha = 0;
+    let gameState = "MENU", puzzleActive = false, puzzleCompleted = false;
+    let kelebek = { x: 390, y: 143, speed: 5 }, mouse = { x: 0, y: 0 }, keys = {};
     let letters = [], lassoPoints = [], isDrawing = false;
-    let collectedInBox = [], lassoCount = 8, timeLeft = 180;
+    let collectedText = "", lassoInk = 100, timeLeft = 180, textAlpha = 0;
     let illuminatedAreas = [];
 
     const tempCanvas = document.createElement('canvas');
@@ -72,19 +77,15 @@
     const tempCtx = tempCanvas.getContext('2d');
     tempCtx.scale(dpr, dpr);
 
-    // --- ЛОГИКА ---
+    // --- ЛОГИКА ПАЗЛА ---
     function generateLetters() {
         letters = [];
-        const act = acts[currentAct];
-        const targetClean = act.target.replace(/\s/g, '');
-        const pool = (targetClean + "abcde").split('');
-        
-        // Сетка 5x4 для равномерного разброса
-        for (let i = 0; i < 5; i++) {
-            for (let j = 0; j < 4; j++) {
+        const pool = acts[currentAct].target.replace(/\s/g, '') + "abcde";
+        const cols = 5, rows = 4;
+        for (let i = 0; i < cols; i++) {
+            for (let j = 0; j < rows; j++) {
                 letters.push({
-                    x: 735 + (i * 45),
-                    y: 300 + (j * 35),
+                    x: 740 + (i * 45), y: 300 + (j * 35),
                     char: pool[Math.floor(Math.random() * pool.length)],
                     isFound: false
                 });
@@ -100,72 +101,59 @@
         return inside;
     }
 
-    // --- СОБЫТИЯ ---
+    // --- ОБРАБОТКА СОБЫТИЙ ---
     window.addEventListener('keydown', e => {
         keys[e.key.toLowerCase()] = true;
         if (e.key === 'Enter') {
             if (gameState === "MENU") { gameState = "ROOM"; sounds.bg.play(); }
-            else if (isAtTrigger() && !puzzleActive) { puzzleActive = true; generateLetters(); }
+            else if (isAtTarget() && !puzzleActive) { puzzleActive = true; generateLetters(); }
         }
     });
-
     window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
     canvas.addEventListener('mousemove', e => {
         const r = canvas.getBoundingClientRect();
         mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
-        if (isDrawing) lassoPoints.push({x: mouse.x, y: mouse.y});
-    });
-
-    canvas.addEventListener('mousedown', () => {
-        // Проверка клика по инструкции (?)
-        if (mouse.x > 940 && mouse.y < 60) {
-            showHelp = !showHelp;
-            return;
+        if (isDrawing && lassoInk > 0) {
+            lassoPoints.push({x: mouse.x, y: mouse.y});
+            lassoInk -= 0.5;
         }
-        if (showHelp) { showHelp = false; return; }
-
-        if (puzzleActive && lassoCount > 0) { isDrawing = true; lassoPoints = []; }
     });
-
+    canvas.addEventListener('mousedown', () => {
+        if (puzzleActive && !puzzleCompleted) { isDrawing = true; lassoPoints = []; lassoInk = 100; }
+    });
     window.addEventListener('mouseup', () => {
         if (isDrawing) {
             isDrawing = false;
-            let foundAny = false;
             letters.forEach(l => {
                 if (!l.isFound && isPointInLasso(l.x, l.y, lassoPoints)) {
-                    if (acts[currentAct].target.includes(l.char)) {
-                        l.isFound = true; foundAny = true;
-                        collectedInBox.push(l.char);
+                    let needed = acts[currentAct].target.replace(/\s/g, '')[collectedText.length];
+                    if (l.char === needed) {
+                        l.isFound = true; collectedText += l.char;
                         sounds.click.play();
+                        if (collectedText === acts[currentAct].target.replace(/\s/g, '')) completeAct();
                     }
                 }
             });
-            if (!foundAny) lassoCount--;
-            checkWin();
         }
     });
 
-    function isAtTrigger() {
-        const t = acts[currentAct].triggerPos;
-        return kelebek.x > t.x && kelebek.x < t.x + t.w && kelebek.y > t.y && kelebek.y < t.y + t.h;
+    function isAtTarget() {
+        const o = acts[currentAct].obj;
+        return kelebek.x > o.x && kelebek.x < o.x + o.w && kelebek.y > o.y && kelebek.y < o.y + o.h;
     }
 
-    function checkWin() {
-        const needed = [...new Set(acts[currentAct].target.replace(/\s/g, ''))];
-        if (needed.every(char => collectedInBox.includes(char))) {
-            puzzleCompleted = true; puzzleActive = false;
-            sounds.transform.play();
-            illuminatedAreas.push(acts[currentAct].colorRect);
-            setTimeout(() => {
-                if (currentAct < acts.length - 1) {
-                    currentAct++; puzzleCompleted = false; collectedInBox = []; lassoCount = 8; textAlpha = 0;
-                } else { gameState = "FINISH"; }
-            }, 4000);
-        }
+    function completeAct() {
+        sounds.transform.play();
+        illuminatedAreas.push(acts[currentAct].colorArea);
+        puzzleActive = false; puzzleCompleted = true;
+        setTimeout(() => {
+            if (currentAct < acts.length - 1) {
+                currentAct++; collectedText = ""; puzzleCompleted = false; textAlpha = 0;
+            } else { gameState = "WIN"; }
+        }, 4000);
     }
 
-    // --- ОТРИСОВКА ---
+    // --- ЦИКЛ ОТРИСОВКИ ---
     function mainLoop() {
         ctx.clearRect(0, 0, 1000, 600);
         if (gameState === "MENU") drawMenu();
@@ -174,17 +162,16 @@
     }
 
     function drawMenu() {
-        if (introImage.complete) ctx.drawImage(assets.intro, 0, 0, 1000, 600);
-        const over = (mouse.x > 405 && mouse.x < 595 && mouse.y > 300 && mouse.y < 348);
-        ctx.fillStyle = over ? "#B2D8B2" : "#D3D3D3";
+        ctx.drawImage(assets.intro, 0, 0, 1000, 600);
+        ctx.fillStyle = "black"; ctx.font = "60px 'Zeyada'"; ctx.textAlign = "center";
+        ctx.fillText("HUZME", 500, 80);
+        ctx.fillStyle = (mouse.x > 405 && mouse.x < 595 && mouse.y > 300 && mouse.y < 348) ? "#B2D8B2" : "#D3D3D3";
         drawRoundedRect(ctx, 405, 300, 190, 48, 15); ctx.fill();
-        ctx.fillStyle = "black"; ctx.font = "32px 'Zeyada'"; ctx.textAlign = "center";
-        ctx.fillText("BAŞLA", 500, 335);
+        ctx.fillStyle = "black"; ctx.font = "30px 'Zeyada'"; ctx.fillText("BAŞLA", 500, 335);
     }
 
     function drawRoom() {
         ctx.drawImage(assets.roomRenkli, 0, 0, 1000, 600);
-        
         tempCtx.clearRect(0, 0, 1000, 600);
         tempCtx.drawImage(assets.roomSiyah, 0, 0, 1000, 600);
         tempCtx.globalCompositeOperation = 'destination-out';
@@ -198,24 +185,11 @@
         tempCtx.globalCompositeOperation = 'source-over';
         ctx.drawImage(tempCanvas, 0, 0, 1000, 600);
 
-        if (puzzleCompleted) {
-            ctx.drawImage(assets.hero, 150, 240, 350, 350);
-        } else {
-            // СВЕЧЕНИЕ ПРЕДМЕТА
-            if (isAtTrigger()) {
-                ctx.save();
-                ctx.shadowBlur = 20; ctx.shadowColor = "#B2D8B2";
-                ctx.fillStyle = "rgba(178, 216, 178, 0.5)";
-                const t = acts[currentAct].triggerPos;
-                ctx.beginPath(); ctx.arc(t.x + t.w/2, t.y + t.h/2, 40, 0, Math.PI*2); ctx.fill();
-                ctx.restore();
-            }
-            ctx.drawImage(assets.kelebek, kelebek.x - 185, kelebek.y - 178, 400, 400);
-        }
+        if (puzzleCompleted) ctx.drawImage(assets.hero, 150, 240, 350, 350);
+        else ctx.drawImage(assets.kelebek, kelebek.x - 185, kelebek.y - 178, 400, 400);
 
         drawDialogue();
         drawPuzzle();
-        drawUI();
     }
 
     function updateKelebek() {
@@ -226,7 +200,6 @@
     }
 
     function drawDialogue() {
-        if (puzzleCompleted) return;
         ctx.save();
         ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; ctx.fillRect(0, 550, 670, 100);
         if (textAlpha < 1) textAlpha += 0.01;
@@ -238,52 +211,28 @@
     function drawPuzzle() {
         if (!puzzleActive) return;
         ctx.save();
+        // Тетрадка и Фраза
         ctx.font = "24px 'Zeyada'"; ctx.fillStyle = "black"; ctx.textAlign = "center";
         let disp = "";
-        for(let c of acts[currentAct].target) {
-            if (c === " ") disp += "  ";
-            else disp += (collectedInBox.includes(c) ? c : "_") + " ";
+        const target = acts[currentAct].target;
+        for(let i=0; i<target.length; i++) {
+            if (target[i] === " ") disp += "  ";
+            else disp += (collectedText[i] || "_") + " ";
         }
         ctx.fillText(disp, 840, 100);
         ctx.font = "16px 'Zeyada'"; ctx.fillText(acts[currentAct].secondLine, 840, 130);
-        ctx.textAlign = "right"; ctx.fillText("- " + acts[currentAct].poet, 950, 160);
-
-        // БУКВЫ
-        ctx.font = "20px 'Zeyada'"; ctx.textAlign = "center";
+        
+        // Буквы и Лассо
         letters.forEach(l => { if (!l.isFound) ctx.fillText(l.char, l.x, l.y); });
-
-        // ЛАССО
         if (isDrawing && lassoPoints.length > 2) {
-            ctx.beginPath(); ctx.strokeStyle = "rgba(41, 128, 185, 0.7)"; 
-            ctx.setLineDash([5, 5]); ctx.lineWidth = 3;
-            ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+            ctx.beginPath(); ctx.strokeStyle = "rgba(41, 128, 185, 0.7)"; ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]); ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
             lassoPoints.forEach(p => ctx.lineTo(p.x, p.y)); ctx.stroke();
         }
-        ctx.restore();
-    }
-
-    function drawUI() {
-        ctx.fillStyle = "black"; ctx.font = "30px Arial"; ctx.textAlign = "center";
-        ctx.fillText("?", 960, 45); // Кнопка помощи
         
-        if (puzzleActive) {
-            ctx.font = "26px 'Zeyada'"; ctx.fillText(lassoCount, 720, 45); // Попытки
-            drawRoundedRect(ctx, 733, 443, 88, 53, 5); ctx.stroke(); // Коробка
-            ctx.font = "18px Arial"; ctx.fillText(collectedInBox.slice(-5).join(""), 777, 475);
-        }
-
-        if (showHelp) {
-            ctx.save();
-            ctx.fillStyle = "rgba(255,255,255,0.95)";
-            drawRoundedRect(ctx, 300, 150, 400, 300, 20); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = "black"; ctx.font = "24px Arial";
-            ctx.fillText("ИНСТРУКЦИЯ", 500, 200);
-            ctx.font = "18px Arial";
-            ctx.fillText("Обводите лассо нужные буквы.", 500, 250);
-            ctx.fillText("Каждое неверное движение тратит лассо.", 500, 280);
-            ctx.fillText("[Кликните, чтобы закрыть]", 500, 420);
-            ctx.restore();
-        }
+        // Индикатор чернил
+        ctx.fillStyle = "red"; ctx.fillRect(733, 420, (lassoInk/100)*100, 5);
+        ctx.restore();
     }
 
     function drawRoundedRect(c, x, y, w, h, r) {
