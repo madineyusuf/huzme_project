@@ -6,7 +6,7 @@ Bu projem, BTÜ Bilgisayar Mühendisliği bölümü Web Tabanlı Programlama der
 [Oyunun Linki - 
 
 ## 🎮 Referans Oyun ve Mekanik
-- **Referans Oyunlar:** [Love letters] ve [One Day Better]
+- **Referans Oyunlar:** [Love Letters] ve [One Day Better]
 - **Bağlantı:** [https://nozomu57.itch.io/love-letters] ve [https://aquanoctis.itch.io/onedaybetter]
 - **Temel Mekanik:** Bu projede, referans oyunun temelinde yer alan 'Lasso' mekaniği temel alınmıştır. Oyuncu,  bir "mürekkep" miktarı ile ekrandaki harfleri çevreleyerek kelimeleri toplamalı ve karakterin dünyasını karanlıktan aydınlığa çıkarıp anlam katmalıdır
 
@@ -31,5 +31,5 @@ Karanlık ve sessiz bir odaya hapsolmuş kahramanımız, elindeki tek rehber ola
   - Sesler: [Arf ve Piano seslerini, Evgeni Grinko kompozisyonu kullanılmıştır]
 
 ## 🧑‍💻 Geliştirme Süreci
-HTML5, JS, Canvas hakkında bilgileri Okul kaynakları, Youtube, W3School,Reddit gibi sitelerden edinerek ve onalrdan faydalanarak bu oyunu tamamladım.
+HTML5, JS, Canvas hakkında bilgileri Okul kaynakları, Youtube, W3School,Reddit gibi sitelerden edinerek ve onlardan faydalanarak bu oyunu tamamladım.
 Projenin mantık yapısı ve hata ayıklama süreçlerinde yapay zeka araçlarından (Gemini) yararlandım. Tüm detaylar ve kullanılan "prompt"lar `AI.md` dosyasında belgelenmiştir.
