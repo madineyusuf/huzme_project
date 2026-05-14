@@ -34,6 +34,7 @@ Karanlık ve sessiz bir odaya hapsolmuş kahramanımız, elindeki tek rehber ola
 HTML5, JS, Canvas hakkında bilgileri Okul kaynakları, Youtube, W3School,Reddit gibi sitelerden edinerek ve onlardan faydalanarak bu oyunu tamamladım.
 Projenin mantık yapısı ve hata ayıklama süreçlerinde yapay zeka araçlarından (Gemini) yararlandım. Tüm detaylar ve kullanılan "prompt"lar `AI.md` dosyasında belgelenmiştir.
 
+## 🔎 Bazı sahneler
 
 ![Oyun İçi Görüntü 1](images/son.png)
 ![Oyun İçi Görüntü 2](images/piano.png)
