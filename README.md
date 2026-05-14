@@ -8,13 +8,13 @@ Oyunun Linki -   https://madineyusuf.github.io/huzme_project/
 ## 🎮 Referans Oyun ve Mekanik
 - **Referans Oyunlar:** [Love Letters] ve [One Day Better]
 - **Bağlantı:** [https://nozomu57.itch.io/love-letters] ve [https://aquanoctis.itch.io/onedaybetter]
-- **Temel Mekanik:** Bu projede, referans oyunun temelinde yer alan 'Lasso' mekaniği temel alınmıştır. Oyuncu,  bir "mürekkep" miktarı ile ekrandaki harfleri çevreleyerek kelimeleri toplamalı ve karakterin dünyasını karanlıktan aydınlığa çıkarıp anlam katmalıdır
+- **Temel Mekanik:** Bu projede, referans oyunun temelinde yer alan 'Lasso' mekaniği ve bulmaca temel alınmıştır. Oyuncu, bir kement ile ekrandaki harfleri çevreleyerek kelimeleri toplamalı ve karakterin dünyasını karanlıktan aydınlığa çıkarıp anlam katmalıdır.
 
 ## 📖 Hikaye ve Hedef
-Huzme, bir karakterin içsel karmaşasından kurtulup zihinsel berraklığa ve cesarete ulaşma yolculuğunu konu alan, hikaye odaklı bir bulmaca oyunudur. Oyun, görsel sanat (One Line
+Huzme, bir karakterin içsel karmaşasından kurtulup zihinsel berraklığa ve cesarete ulaşma yolculuğunu konu alan, hikaye odaklı bir bulmaca oyunudur. Oyunum, görsel sanat (One Line
 Drawing) ve edebiyatı (Türk şiiri, felsefe ve manevi değerler) modern web teknolojileriyle birleştirir.
-Karanlık ve sessiz bir odaya hapsolmuş kahramanımız, elindeki tek rehber olan küçük bir ışık huzmesi (kelebek) ile anılarını ve bilgelik sözlerini aramaktadır. Oyuncunun görevi:
-1. Odadaki gizemli nesneleri (Kitap, Tablo, Piyano vb.) keşfetmek
+Karanlık bir odaya hapsolmuş kahramanımız, elindeki tek rehber olan küçük bir ışık huzmesi (kelebek) ve aslında onun zihninin bir prototipi olan  ile anılarını ve bilgelik sözlerini aramaktadır. Oyuncunun görevi:
+1. Odadaki gizemli nesneleri (Kitap, Tablo, Piyano vb.) keşfetmek ( Toplam 5 sahne)
 2. Bu nesnelerin etrafındaki dağınık harfleri "Lasso" yöntemiyle toplayarak anlamlı cümleleri tamamlamak
 3. Her tamamlanan  şiir ve ya alıntı satırlarıyla  odanın bir kısmını sonsuza dek renklendirmek ve finaldeki kapıya ulaşmak
                        
@@ -27,13 +27,13 @@ Karanlık ve sessiz bir odaya hapsolmuş kahramanımız, elindeki tek rehber ola
 - Bu projede hiçbir harici JavaScript kütüphanesi kullanılmamıştır
 - Tüm görselleştirme işlemleri Figma (El çizimleri) ve HTML5 `<canvas>` API'si ile gerçekleştirilmiştir.
 - **Varlıklar:**
-  - Görseller: [One line Drawing'den ilham aldığım kendi çizimlerimdir]
+  - Görseller: [One line Drawing tasarımından ilham aldığım kendi çizimlerimdir]
   - Sesler: [Arf ve Piano seslerini,Beethhoven'nin Moonlight Sonata ve  Evgeni Grinko'nun Valse kompozisyonu kullanılmıştır]
 
 ## 🧑‍💻 Geliştirme Süreci
 HTML5, JS, Canvas hakkında bilgileri Okul kaynakları, Youtube, W3School,Reddit gibi sitelerden edinerek ve onlardan faydalanarak bu oyunu tamamladım.
 Projenin mantık yapısı ve hata ayıklama süreçlerinde yapay zeka araçlarından (Gemini) yararlandım. Tüm detaylar ve kullanılan "prompt"lar `AI.md` dosyasında belgelenmiştir.
-
+Eğer bir hata bulduysanız, bana ulaşıp onu söylemekten çekinmeyin)
 ## 🔎 Bazı sahneler
 
 ![Oyun İçi Görüntü 1](images/son.png)
