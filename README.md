@@ -28,7 +28,7 @@ Karanlık ve sessiz bir odaya hapsolmuş kahramanımız, elindeki tek rehber ola
 - Tüm görselleştirme işlemleri Figma (El çizimleri) ve HTML5 `<canvas>` API'si ile gerçekleştirilmiştir.
 - **Varlıklar:**
   - Görseller: [One line Drawing'den ilham aldığım kendi çizimlerimdir]
-  - Sesler: [Arf ve Piano seslerini, Evgeni Grinko kompozisyonu kullanılmıştır]
+  - Sesler: [Arf ve Piano seslerini,Beethhoven'nin Moonlight Sonata ve  Evgeni Grinko'nun Valse kompozisyonu kullanılmıştır]
 
 ## 🧑‍💻 Geliştirme Süreci
 HTML5, JS, Canvas hakkında bilgileri Okul kaynakları, Youtube, W3School,Reddit gibi sitelerden edinerek ve onlardan faydalanarak bu oyunu tamamladım.
