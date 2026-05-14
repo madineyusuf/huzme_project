@@ -1,247 +1,689 @@
 <!DOCTYPE html>
 <html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <title>Huzme - Pearl Project</title>
-    <link href="https://fonts.googleapis.com/css2?family=Zeyada&display=swap" rel="stylesheet">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Huzme</title>
     <style>
-        body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
-        canvas { background: #fff; border: 1px solid #333; width: 1000px; height: 600px; cursor: crosshair; }
+      @import url('https://fonts.googleapis.com/css2?family=Zeyada&display=swap');
+      body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+      canvas { background: #fff; border: 1px solid #333; width: 1000px; height: 600px; display: block; }
     </style>
-</head>
-<body>
-<canvas id="gameCanvas"></canvas>
-<script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = 1000 * dpr; canvas.height = 600 * dpr;
-    ctx.scale(dpr, dpr);
-
-    // --- РЕСУРСЫ ---
-    const assets = {
-        intro: new Image(), roomRenkli: new Image(), roomSiyah: new Image(),
-        kelebek: new Image(), hero: new Image()
-    };
-    assets.intro.src = 'images/giris.png';
-    assets.roomRenkli.src = 'images/renkli.png';
-    assets.roomSiyah.src = 'images/siyah.png';
-    assets.kelebek.src = 'images/kelebek.png';
-    assets.hero.src = 'images/hero.png';
-
-    const sounds = {
-        click: new Audio('sounds/button-click-high-short-close.mp3'),
-        transform: new Audio('sounds/magic-spells-with-harp-and-chimes_gjimere_.mp3'),
-        bg: new Audio('sounds/the-sound-of-the-harp.mp3')
-    };
-    sounds.bg.loop = true;
-
-    // --- СИСТЕМА АКТов ---
-    let currentAct = 0;
-    const acts = [
-        {   // Акт 1: Книга
-            target: "yasamak sakaya gelmez",
-            full: "Yaşamak şakaya gelmez Büyük bir ciddiyetle yaşayacaksın",
-            author: "Nazım Hikmet",
-            obj: {x:205, y:302, w:67, h:38},
-            dialogue: "-Düşüncelerim karmakarışık... Nereden başlamalıyım?",
-            colorArea: {x:0, y:300, w:288, h:300}
-        },
-        {   // Акт 2: Картина
-            target: "sevelim sevilelim",
-            full: "Sevelim sevilelim, Dünya kimseye kalmaz",
-            author: "Yunus Emre",
-            obj: {x:350, y:150, w:80, h:60},
-            dialogue: "-Bu tablo... Ailem. Onların sevgisi benim köklerim.",
-            colorArea: {x:300, y:100, w:200, h:150}
-        },
-        {   // Акт 3: Телефон
-            target: "sizi cok seviyorum",
-            full: "Sizi çok seviyorum",
-            author: "",
-            obj: {x:500, y:400, w:50, h:50},
-            dialogue: "-Sesinizi duymaya ihtiyacım var.",
-            colorArea: {x:450, y:350, w:150, h:150}
-        }
-    ];
-
-    // --- СОСТОЯНИЕ ---
-    let gameState = "MENU", puzzleActive = false, puzzleCompleted = false;
-    let kelebek = { x: 390, y: 143, speed: 5 }, mouse = { x: 0, y: 0 }, keys = {};
-    let letters = [], lassoPoints = [], isDrawing = false;
-    let collectedText = "", lassoInk = 100, timeLeft = 180, textAlpha = 0;
-    let illuminatedAreas = [];
-
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = 1000 * dpr; tempCanvas.height = 600 * dpr;
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.scale(dpr, dpr);
-
-    // --- ЛОГИКА ПАЗЛА ---
-    function generateLetters() {
-        letters = [];
-        const pool = acts[currentAct].target.replace(/\s/g, '') + "abcde";
-        const cols = 5, rows = 4;
-        for (let i = 0; i < cols; i++) {
-            for (let j = 0; j < rows; j++) {
-                letters.push({
-                    x: 740 + (i * 45), y: 300 + (j * 35),
-                    char: pool[Math.floor(Math.random() * pool.length)],
-                    isFound: false
-                });
-            }
-        }
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const dpr = window.devicePixelRatio || 1;
+canvas.width = 1000 * dpr;
+canvas.height = 600 * dpr;
+ctx.scale(dpr, dpr);
+const tempCanvas = document.createElement('canvas');
+const tempCtx = tempCanvas.getContext('2d');
+tempCanvas.width = 1000;
+tempCanvas.height = 600;
+// Oyun Durumu
+let gameState = "MENU";
+let lastTime = performance.now();
+// Klavye & Fare
+const keys = {};
+const mouse = { x: 0, y: 0 };
+let isMouseDown = false;
+// Oyuncu (Kelebek)
+let kelebek = { x: 390, y: 143, speed: 5 };
+// Arayüz  Durumu
+const startBtnRect = { x: 405, y: 300, w: 190, h: 48 };
+const headText = { x: 422, y: 23 };
+const helpBtnRect = { x: 935, y: 8, w: 30, h: 25 };
+let windowLightAlpha = 0; //  Pencere aydınlık seviyesi
+// Oyun İlerlemesi
+let lassoCount = 20; // Lasso hakkı tüm oyun boyunca geçerli
+let timeLeft = 360 ; // 6 dakika
+let timerStarted = false; // Metin Durumu
+let textAlpha = 0;  // Metinler için genel şeffaflık
+// Akt Durumu
+let currentActIndex = 0;
+let isAtTarget = false;
+let currentDialog = "Düşüncelerim karmakarışık... Neye tutunacağımı bilmiyorum. Nereden başlamalıyım?";
+let waitingForPiano = false;
+let pianoWaitTimer = 0;
+let showHelp = false;
+// Bulmaca Durumu
+let puzzleActive = false;
+let lassoPoints = [];
+let maxInk = 800;
+let currentInk = 800;
+let activeLetters = [];
+let collectedLetters = [];
+let targetPhrase = "";
+let boxLetters = [];
+// Parçacık İzleri ve Skor Metinleri
+let particles = [];
+let scoreTexts = [];
+// Sahneler
+const ACTS = [
+  {
+    id: 1, // İlk hedef: Kitap
+    targetRect: { x: 205, y: 340, w: 67, h: 38 },
+    colorRect: { x: 0, y: 300, w: 388, h: 300 },
+    puzzleStr1: "Yaşamak şakaya gelmez", 
+    puzzleStr2: "Büyük bir ciddiyetle yaşayacaksın",
+    hintText: "Nazım Hikmet",
+    introDialog: "Düşüncelerim karmakarışık... Neye tutunacağımı bilmiyorum. Nereden başlamalıyım?",
+    successDialog: "Bunların hepsi ne için? Hiçbir şey başaramayacağım. Korku felç ediyor...",
+  },
+  {
+    id: 2,// İkinci hedef: Tablo
+    targetRect: { x: 100, y: 90, w: 40, h: 50 },
+    colorRect: { x: 40, y: 50, w: 200, h: 300 },
+    puzzleStr1: "Sevelim sevilelim", 
+    puzzleStr2: "Dünya kimseye kalmaz", 
+    hintText: "Yunus Emre",
+    introDialog: "Bunların hepsi ne için? Hiçbir şey başaramayacağım. Korku felç ediyor...",
+    successDialog: "Yalnız değilim! Hazırım. Ama nasıl söyleyeceğim? Ya anlamazlarsa? Kelimeler boğazımda düğümleniyor...",
+  },
+  {
+    id: 3,// Üçüncü hedef: Aile fotoğrafı
+    targetRect: { x: 250, y: 153, w: 55, h: 34 },
+    colorRect: { x: 198, y: 0, w: 143, h: 313 },
+    puzzleStr1: "Sizi çok seviyorum", 
+    puzzleStr2: "Anne, Baba; size bir şey söylemek istiyorum...", 
+    hintText: "",
+    introDialog: "Hazırım. Ama nasıl söyleyeceğim? Ya anlamazlarsa? Kelimeler boğazımda düğümleniyor...",
+    successDialog: "Hayatımı değiştirmek ve harekete geçmek istiyorum... Ama pencereden yine yağmur yağıyor. Her şey boşuna mı?",
+  },
+  {
+    id: 4, // Dördüncü hedef: Piyano
+    targetRect: { x: 420, y: 310, w: 120, h: 180 },
+    colorRect: { x: 356, y: 286, w: 310, h: 313 },
+    puzzleStr1: "Artık yaşamım değişecek şimdi yeniden doğacağım", 
+    puzzleStr2: "Yaşam bir armağandır, yaşam mutluluktur, her dakikası sonsuz mutluluk olmalıdır!",
+    hintText: "F.Dostoyevski",
+    introDialog: "Uzun zamandır piyano çalmadım, hafızamı tazeleyeyim, zaman da çabuk geçer",
+    successDialog: "Ah güneş de çıkmış, yağmur da durmuş...Bir denemeliyim, değil mi?",
+  },
+  {
+    id: 5,// Beşinci hedef: Pencere ve Kapı
+    targetRect: { x: 475, y: 58, w: 150, h: 242 },
+    colorRect: { x: 0, y: 0, w: 0, h: 0 },
+    puzzleStr1: "Bir işi bitirince başka bir işle meşgul ol", 
+    puzzleStr2: "Muhakkak ki her zorlukla beraber bir kolaylık vardır.",
+    hintText: "'İnşirah' 93:5-6", 
+    introDialog: "Ah güneş de çıkmış, yağmur da durmuş...Bir denemeliyim, değil mi?",
+    successDialog: "Sanki her şey yeni baştan kuruluyor gibi...",
+  } 
+];
+// Varlıklar
+const images = {};
+const sounds = {};
+// Yardımcı Fonksiyonlar
+function loadFallbackImage(key, drawFn) {// Yedek görsel oluşturma fonksiyonu
+  const c = document.createElement('canvas');
+  c.width = 1000; c.height = 600;
+  const g = c.getContext('2d');
+  if (key === 'kelebek') { c.width = 400; c.height = 400; }
+  drawFn(g); // Çizim fonksiyonunu çağırarak yedek görsel oluştur
+  const img = new Image();
+  img.src = c.toDataURL();
+  images[key] = img;
+}
+// Varlıkları yükleme
+function initAssets() {
+  const loadImg = (key, src, fallback) => {
+    const img = new Image();
+    img.onload = () => { images[key] = img; };
+    img.onerror = () => { loadFallbackImage(key, fallback); };
+    img.src = src;
+  };
+// Görselleri yükle, hata durumunda yedek görsel oluştur
+  loadImg('giris', 'images/giris.png', g => { g.fillStyle = '#111'; g.fillRect(0,0,1000,600); });
+  loadImg('renkli', 'images/renkli.png', g => { g.fillStyle = '#4a7c59'; g.fillRect(0,0,1000,600); });
+  loadImg('siyah', 'images/siyah.png', g => { g.fillStyle = '#111'; g.fillRect(0,0,1000,600); });
+  loadImg('kelebek', 'images/kelebek.png', g => {
+    g.fillStyle = 'transparent'; g.fillRect(0,0,400,400);// Temel şeffaf arka plan
+    g.fillStyle = '#c8d4e0'; g.beginPath(); g.arc(200, 200, 20, 0, Math.PI*2); g.fill();// Basit bir daire ile kelebek simgesi
+    g.shadowColor = '#c8d4e0'; g.shadowBlur = 20; g.fill();// Parlaklık efekti için gölge ekle
+  });
+  loadImg('hero', 'images/hero.png', g => {});
+  loadImg('piano', 'images/piano.png', g => {});
+  loadImg('son', 'images/son.png', g => { g.fillStyle = '#000'; g.fillRect(0,0,1000,600); });
+// Sesleri yükle, hata durumunda boş ses objesi oluştur
+  const loadAudio = (key, src) => {
+    const a = new Audio(src);
+    a.volume = key === 'bgm' ? 0.4 : 0.6;
+    if (key === 'bgm' || key === 'valse') a.loop = true;
+    sounds[key] = a;
+  };
+  loadAudio('click', 'sounds/button-click-high-short-close.mp3');
+  loadAudio('bgm', 'sounds/Classicals.de - Beethoven - Moonlight Sonata - 1. Adagio sostenuto - Piano Sonata Nr. 14, Op. 27, Nr. 2.mp3');
+  loadAudio('transform', 'sounds/magic-spells-with-harp-and-chimes_gjimere_.mp3');
+  sounds['transform'].volume = 0.5;
+  loadAudio('valse', 'sounds/Evgeny Grinko Valse.mp3');
+}
+// Oyun Döngüsü
+let timerInterval = null;// Geri sayım zamanlayıcısı referansı
+function startCountdown() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (timeLeft > 0) timeLeft--;
+    else { 
+      clearInterval(timerInterval); 
+      gameState = "GAME_OVER"; 
     }
-
-    function isPointInLasso(x, y, points) {
-        let inside = false;
-        for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-            if (((points[i].y > y) !== (points[j].y > y)) && (x < (points[j].x - points[i].x) * (y - points[i].y) / (points[j].y - points[i].y) + points[i].x)) inside = !inside;
-        }
-        return inside;
+  }, 1000);
+}
+window.addEventListener('keydown', e => { // Klavye girişlerini işle
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if ((k === 'enter' || k === ' ') && (gameState === "GAME_OVER" || gameState === "VICTORY")) {
+    resetGame();
+    return;
+  }
+  if (k === 'enter' || k === ' ') { // Enter veya Space tuşuna basıldığında
+    if (gameState === "MENU") {
+      startGame();
+    } else if (gameState === "ROOM" && isAtTarget && !waitingForPiano && !showHelp && !puzzleActive) {
+      playSound('click');
+      if (currentActIndex >= 5) completeDoorAct(); else activatePuzzle();
     }
-
-    // --- ОБРАБОТКА СОБЫТИЙ ---
-    window.addEventListener('keydown', e => {
-        keys[e.key.toLowerCase()] = true;
-        if (e.key === 'Enter') {
-            if (gameState === "MENU") { gameState = "ROOM"; sounds.bg.play(); }
-            else if (isAtTarget() && !puzzleActive) { puzzleActive = true; generateLetters(); }
+  }
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });// Fare hareketlerini işle
+canvas.addEventListener('mousemove', e => { // Fare konumunu güncelle
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - rect.left) * (1000 / rect.width);
+  mouse.y = (e.clientY - rect.top) * (600 / rect.height);
+// Lasso çizimini işle
+  if (isMouseDown && puzzleActive && !showHelp) {
+    if (lassoPoints.length > 0) {
+      const lp = lassoPoints[lassoPoints.length - 1];
+      const dist = Math.hypot(mouse.x - lp.x, mouse.y - lp.y);
+      if (dist > 5) {
+        if (currentInk - dist < 0) endLasso();
+        else {
+          currentInk -= dist;
+          lassoPoints.push({ x: mouse.x, y: mouse.y });
+          particles.push({x: mouse.x, y: mouse.y, life: 1.0});
         }
+      }
+    } else lassoPoints.push({ x: mouse.x, y: mouse.y });
+  }
+});
+// Fare tıklamalarını işler
+canvas.addEventListener('mousedown', e => {
+  isMouseDown = true;
+  if (puzzleActive && !showHelp) {
+    lassoPoints = [{ x: mouse.x, y: mouse.y }];
+    currentInk = maxInk;
+  }
+});
+// Fare tıklaması bittiğinde işler
+canvas.addEventListener('mouseup', e => {
+  isMouseDown = false;
+  if (showHelp) { showHelp = false; return; }
+  if (gameState === "MENU" && isMouseOverButton(startBtnRect)) startGame();
+  else if (gameState === "GAME_OVER" || gameState === "VICTORY") resetGame();
+  else if (gameState === "ROOM" && !puzzleActive && !waitingForPiano) {
+    if (isMouseOverButton(helpBtnRect)) { showHelp = true; return; }
+    if (isAtTarget) { if (currentActIndex === 5) completeDoorAct(); else activatePuzzle(); }
+  } else if (puzzleActive) {
+    if (isMouseOverButton(helpBtnRect)) { showHelp = true; return; }
+    endLasso();
+  }
+});
+// Yardımcı Fonksiyonlar
+function isMouseOverButton(rect) {
+  return mouse.x > rect.x && mouse.x < rect.x + rect.w && mouse.y > rect.y && mouse.y < rect.y + rect.h;
+}
+// Oyun Başlatma ve Sıfırlama
+function startGame() {
+  playSound('click');
+  playSound('bgm', true);
+  gameState = "ROOM";
+  currentDialog = ACTS[0].introDialog;
+  textAlpha = 0;
+}
+function resetGame() {
+  gameState = "MENU";
+  currentActIndex = 0;
+  lassoCount = 10;
+  timeLeft = 120;
+  kelebek = { x: 390, y: 143, speed: 5 };
+  collectedLetters = [];
+  boxLetters = [];
+  waitingForPiano = false;
+  timerStarted = false;
+  sounds['valse'].pause();
+  sounds['bgm'].pause();
+  if (timerInterval) clearInterval(timerInterval);
+}
+// Hedefle çarpışmayı kontrol eder
+function checkTargetCollision() {
+  isAtTarget = false;
+  let activeRect = null;
+  // Eğer hala ACTS içindeysek ve piyano beklenmiyorsa, aktif hedef ACTS[currentActIndex] olur
+  if (currentActIndex < ACTS.length && !waitingForPiano) {
+    activeRect = ACTS[currentActIndex].targetRect;
+  } 
+  // Eğer ACTS bitti ve piyano beklenmiyorsa, aktif hedef kapı olur
+  else if (currentActIndex === 5 && !waitingForPiano) {  // Kapı hedefi
+    activeRect = { x: 530, y: 120, w: 150, h: 150 };
+  }
+// Eğer piyano bekleniyorsa, aktif hedef yoktur (hiçbir şeye yaklaşamaz)
+  if (activeRect) {
+    const targetCenterX = activeRect.x + activeRect.w / 2;
+    const targetCenterY = activeRect.y + activeRect.h / 2;
+    const dist = Math.hypot(kelebek.x - targetCenterX, kelebek.y - targetCenterY);
+   // Kapı hedefi için daha büyük bir eşik değeri kullan, çünkü kapı daha büyük ve oyuncunun tam ortasına gelmesi gerekmiyor 
+   let threshold = (currentActIndex === 5) ? 150 : 120;
+    if (dist < threshold) {
+      isAtTarget = true;
+    }
+  }
+}
+// Bulmaca Aktif Etme ve Harf Yönetimi
+function activatePuzzle() {
+  playSound('click');
+  puzzleActive = true;
+  collectedLetters = [];
+  boxLetters = [];
+  if (!timerStarted) { startCountdown(); timerStarted = true; }
+  const act = ACTS[currentActIndex];
+  targetPhrase = act.puzzleStr1.replace(/ /g, '');
+  spawnLetters();
+}
+// Lasso çizimi tamamlandığında çağrılır, içindeki harfleri kontrol eder ve puanları günceller
+function endLasso() {
+  if (lassoPoints.length > 3) {
+    lassoPoints.push({ ...lassoPoints[0] });
+    let capturedCorrect = 0, capturedWrong = 0;
+    const remainingLetters = [];
+    for (const l of activeLetters) {
+      if (pointInPolygon({x: l.x + 15, y: l.y + 15}, lassoPoints)) {
+        boxLetters.push({ ...l, x: 735 + Math.random()*50, y: 460 + Math.random()*20 });
+        if (l.isCorrect) {
+          capturedCorrect++;
+          collectedLetters.push(l.char);
+          scoreTexts.push({text: "+1", x: l.x, y: l.y, life: 1.0});
+        } else {
+          capturedWrong++;
+          scoreTexts.push({text: "-1 Lasso", x: l.x, y: l.y, life: 1.0});
+        }
+      } else remainingLetters.push(l);
+    }
+    activeLetters = remainingLetters;
+    if (capturedWrong > 0) {
+      lassoCount--;
+      if (lassoCount <= 0) { gameState = "GAME_OVER"; return; }
+    }
+    if (capturedCorrect > 0 || capturedWrong > 0) {
+      if (getMaskedPhrase() !== null) setTimeout(spawnLetters, 500);
+    }
+  }
+  lassoPoints = [];
+}
+// Yeni harfler oluşturur, eksik harflerden bazılarını ve bazı sahte harfleri karıştırarak ekrana yerleştirir
+function spawnLetters() {
+  const phraseChars = targetPhrase.split('');
+  const missingChars = [...phraseChars];
+  for (const c of collectedLetters) {
+    const idx = missingChars.findIndex(mc => mc.toLocaleLowerCase('tr') === c.toLocaleLowerCase('tr'));
+    if (idx !== -1) missingChars.splice(idx, 1);
+  }
+  if (missingChars.length === 0) { completePuzzle(); return; }
+  const spawnCount = Math.min(12, missingChars.length + 3);
+  const charsToSpawn = [];
+  for (let i = 0; i < Math.min(missingChars.length, spawnCount - 3); i++) {
+    charsToSpawn.push({ char: missingChars[i], isCorrect: true });
+  }
+  const decoys = "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ";
+  while (charsToSpawn.length < spawnCount) {
+    charsToSpawn.push({ char: decoys[Math.floor(Math.random() * decoys.length)], isCorrect: false });// Rastgele sahte harfler ekle
+  }
+  charsToSpawn.sort(() => Math.random() - 0.5);
+  activeLetters = [];
+  for (let i = 0; i < charsToSpawn.length; i++) {
+    const col = i % 4, row = Math.floor(i / 4);
+    activeLetters.push({
+      char: charsToSpawn[i].char,
+      x: 740 + col * 55,
+      y: 280 + row * 50,
+      isCorrect: charsToSpawn[i].isCorrect
     });
-    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-    canvas.addEventListener('mousemove', e => {
-        const r = canvas.getBoundingClientRect();
-        mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
-        if (isDrawing && lassoInk > 0) {
-            lassoPoints.push({x: mouse.x, y: mouse.y});
-            lassoInk -= 0.5;
-        }
-    });
-    canvas.addEventListener('mousedown', () => {
-        if (puzzleActive && !puzzleCompleted) { isDrawing = true; lassoPoints = []; lassoInk = 100; }
-    });
-    window.addEventListener('mouseup', () => {
-        if (isDrawing) {
-            isDrawing = false;
-            letters.forEach(l => {
-                if (!l.isFound && isPointInLasso(l.x, l.y, lassoPoints)) {
-                    let needed = acts[currentAct].target.replace(/\s/g, '')[collectedText.length];
-                    if (l.char === needed) {
-                        l.isFound = true; collectedText += l.char;
-                        sounds.click.play();
-                        if (collectedText === acts[currentAct].target.replace(/\s/g, '')) completeAct();
-                    }
-                }
-            });
-        }
-    });
+  }
+}
+// Bulmacayı tamamladığında çağrılır, ilerlemeyi günceller ve sonraki aktın diyalogunu hazırlar
+function completePuzzle() {
+  playSound('transform');
+  puzzleActive = false;
+  collectedLetters = [];
+  boxLetters = [];
+  if (timerInterval) clearInterval(timerInterval);
+  timerStarted = false;
+  const act = ACTS[currentActIndex];
+  currentDialog = act.successDialog;
+  textAlpha = 0;
+  if (currentActIndex === 3) {
+    waitingForPiano = true;
+    pianoWaitTimer = 10; // 10 saniye bekle
+    sounds['bgm'].pause();
+    sounds['valse'].loop = true; 
+    playSound('valse');
+    currentActIndex++;
+}
+   else currentActIndex++;
+}
+// Kapı aktını tamamladığında çağrılır, zafer durumuna geçer ve müziği durdurur
+function completeDoorAct() {
+  playSound('click');
+  currentDialog = "Karanlık bitti, yol başlıyor";
+  textAlpha = 0;
+  puzzleActive = false;
+  if (timerInterval) clearInterval(timerInterval);
+  timerStarted = false;
+  playSound('transform');
+  currentActIndex = 6; 
+  setTimeout(() => {
+    gameState = "VICTORY";
+    sounds['bgm'].pause();
+  }, 5000);
+}
+// Bir noktanın çokgen içinde olup olmadığını kontrol eder lasso için
+function pointInPolygon(point, vs) {
+  let x = point.x, y = point.y, inside = false;
+  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    let xi = vs[i].x, yi = vs[i].y, xj = vs[j].x, yj = vs[j].y;
+    let intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+// Ses çalma fonksiyonu, döngü ve sıfırlama seçenekleriyle 
+function playSound(key, loop = false) {
+  if (sounds[key]) {
+    if (!loop) sounds[key].currentTime = 0;
+    sounds[key].loop = loop;
+    sounds[key].play().catch(() => {});
+  }
+}
+// Parlak bir daire çizme fonksiyonu, hedeflerin etrafındaki ışık efektleri için kullanılır
+function drawGlowingCircle(context, x, y, rad) {
+  const grad = context.createRadialGradient(x, y, 0, x, y, rad);
+  grad.addColorStop(0, 'rgba(0,0,0,1)');
+  grad.addColorStop(0.8, 'rgba(0,0,0,1)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  context.fillStyle = grad;
+  context.beginPath();
+  context.arc(x, y, rad, 0, Math.PI * 2);
+  context.fill();
+}
+// Yuvarlatılmış dikdörtgen çizme fonksiyonu, düğmeler ve arayüz elemanları için kullanılır
+function drawRoundedRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r); ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h); ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r); ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y); ctx.closePath();
+}
+// Uzun metinleri belirli bir genişlikte otomatik olarak satır satır çizen fonksiyon, başlık ve açıklamalar için kullanılır
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(' ');
+  let line = '';
+  for(let n = 0; n < words.length; n++) {
+    let testLine = line + words[n] + ' ';
+    if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+      ctx.fillText(line, x, y); line = words[n] + ' '; y += lineHeight;
+    } else line = testLine;
+  }
+  ctx.fillText(line, x, y);
+}
+// Bulmaca cümlesini, toplanan harflere göre maskeler ve eksik harfleri alt çizgi olarak gösterir. Tüm harfler toplandığında bulmacayı tamamlar
+function getMaskedPhrase() {
+  if (currentActIndex >= ACTS.length) return "";
+  let phrase = ACTS[currentActIndex].puzzleStr1, result = '', isMissingChars = false;
+  for (let i = 0; i < phrase.length; i++) {
+    if (phrase[i] === ' ') { result += ' '; continue; }
+    const letter = phrase[i];
+    const neededTotal = phrase.substring(0, i+1).split('').filter(c => c.toLocaleLowerCase('tr') === letter.toLocaleLowerCase('tr')).length;
+    const collectedTotal = collectedLetters.filter(c => c.toLocaleLowerCase('tr') === letter.toLocaleLowerCase('tr')).length;
+    if (collectedTotal >= neededTotal) result += letter; else { result += '_'; isMissingChars = true; }
+  }
+  if (!isMissingChars && puzzleActive) setTimeout(() => { if (puzzleActive) completePuzzle(); }, 500);
+  return result;
+}
+// Çizim Fonksiyonları
+function drawMenu() {
+  if (images['giris']) ctx.drawImage(images['giris'], 0, 0, 1000, 600);
+  else { ctx.fillStyle = '#111'; ctx.fillRect(0,0,1000,600); }
+  ctx.fillStyle = "black"; ctx.textAlign = "center"; ctx.font = "60px 'Zeyada', cursive";
+  ctx.fillText("HUZME", headText.x + 70, headText.y + 50);
+  const hover = isMouseOverButton(startBtnRect);
+  ctx.save();
+  ctx.fillStyle = hover ? "#B2D8B2" : "#D3D3D3";
+  canvas.style.cursor = hover ? "pointer" : "default";
+  drawRoundedRect(ctx, startBtnRect.x, startBtnRect.y, startBtnRect.w, startBtnRect.h, 15);
+  ctx.fill(); ctx.restore();
+  ctx.fillStyle = "black"; ctx.font = "32px 'Zeyada', cursive";
+  ctx.fillText("BAŞLA", startBtnRect.x + startBtnRect.w/2, startBtnRect.y + 35);
+  ctx.font = "24px 'Zeyada', cursive"; ctx.textAlign = "left";
+  wrapText(ctx, "Bazen her şey zifiri bir karanlığa bürünür, tıpkı kahramanımızın dünyası gibi.", 56, 250, 260, 30);
+  wrapText(ctx, "Sen, o karanlığı delip geçen, ona yol gösteren bir ışık olabilir misin?", 695, 250, 260, 30);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; ctx.textAlign = "right"; ctx.fillText("BY PEARL", 995, 575);
+}
 
-    function isAtTarget() {
-        const o = acts[currentAct].obj;
-        return kelebek.x > o.x && kelebek.x < o.x + o.w && kelebek.y > o.y && kelebek.y < o.y + o.h;
+// Oyun odasını çizen fonksiyon, ilerlemeye bağlı olarak farklı katmanları ve efektleri gösterir
+function drawRoom() {
+    canvas.style.cursor = "default";
+  if (images['renkli']) ctx.drawImage(images['renkli'], 0, 0, 1000, 600);
+  if (currentActIndex >= 1 && images['hero']) ctx.drawImage(images['hero'], 0, 0, 1000, 600);
+  if (currentActIndex >= 4 && images['piano']) ctx.drawImage(images['piano'], 0, 0, 1000, 600);
+  // İlk 4 akt tamamlanmadan önce siyah katmanı çiz, böylece hedefler ve efektler daha belirgin olur
+  if (currentActIndex < 6) {
+    tempCtx.globalCompositeOperation = 'source-over';
+    tempCtx.clearRect(0, 0, 1000, 600);
+    if (images['siyah']) tempCtx.drawImage(images['siyah'], 0, 0, 1000, 600);
+    tempCtx.globalCompositeOperation = 'destination-out'; // Işık deliklerini açmaya başlamak
+}
+// Her tamamlanan akt için hedefin etrafında bir ışık halkası çiz, böylece oyuncuya ilerlemesini görsel olarak gösterir ve sonraki hedefi vurgular
+  
+  for (let i = 0; i < Math.min(currentActIndex, ACTS.length); i++) {
+    const r = ACTS[i].targetRect;
+    if (r) {
+      let centerX = r.x + r.w / 2;
+      let centerY = r.y + r.h / 2;
+      if (i === 2) { // Pencere aşaması
+      tempCtx.save();
+      // Işık miktarı windowLightAlpha'ya bağlı (piyano ile artacak)
+      tempCtx.globalAlpha = Math.max(0.1, windowLightAlpha); 
+      drawGlowingCircle(tempCtx, centerX, centerY, Math.max(r.w, r.h) * 2.5);
+      tempCtx.restore(); }
+      let multiplier;
+      if (i === 2) {
+        multiplier = 2;
+      } else if (i === 3) {
+        multiplier = 1;
+      } else {
+        multiplier = 2.7;
+      }
+      drawGlowingCircle(tempCtx, centerX, centerY, Math.max(r.w, r.h) * multiplier);
     }
+  }
+  if (currentActIndex >= 4 && pianoWaitTimer <= 0) {
+    // Pencerenin koordinatları (330, 74) ve boyutu (146x135)
+    // 180 yarıçapındaki bu daire, pencereyi karanlık maskesinden siler
+    drawGlowingCircle(tempCtx, 330 + 146/2, 74 + 135/2, 180);
+}
+  // Kapı hedefi için özel bir ışık halkası çiz, çünkü bu hedef diğerlerinden farklı ve oyuncunun dikkatini çekmesi gerekiyor
+  if (currentActIndex >= 5 && !waitingForPiano) {  // Kapı hedefi
+    drawGlowingCircle(tempCtx, 530 + 150/2, 120 + 150/2, 180);
+  }
+ // Kelebeğin etrafında, ilerlemeye bağlı olarak büyüyen bir ışık halkası çiz, böylece oyuncuya hareket ederken görsel geri bildirim sağlar ve kelebekle etkileşimi daha tatmin edici hale getirir
+  drawGlowingCircle(tempCtx, kelebek.x, kelebek.y, 85 + (currentActIndex * 5));
+  ctx.drawImage(tempCanvas, 0, 0);// oluşan maskeyi ana kanvasa uygula
+  checkTargetCollision();
+  // Eğer hedefteyse ve aktif bir hedef varsa, o hedefin etrafında parlayan bir daire çizerek oyuncuya görsel bir ipucu ver
+  let activeRect = null;
+  if (currentActIndex < ACTS.length && !waitingForPiano) {
+    activeRect = ACTS[currentActIndex].targetRect;
+  } else if (currentActIndex === 5 && !waitingForPiano) {  
+    activeRect = { x: 530, y: 100, w: 150, h: 150 };
+  }
+// Hedefteyken aktif hedefin etrafında parlayan bir daire çiz
+  if (isAtTarget && activeRect) {
+    ctx.save();
+    const targetX = activeRect.x + activeRect.w / 2;
+    const targetY = activeRect.y + activeRect.h / 2;
+    const hintGrad = ctx.createRadialGradient(targetX, targetY, 0, targetX, targetY, 90);
+    hintGrad.addColorStop(0, "rgba(55, 175, 80, 0.7)"); 
+    hintGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = hintGrad;
+    ctx.beginPath();
+    ctx.arc(targetX, targetY, 90, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  if (images['kelebek']) ctx.drawImage(images['kelebek'], kelebek.x - 185, kelebek.y - 178, 400, 400);
+  const helpHover = isMouseOverButton(helpBtnRect);
+  ctx.fillStyle = helpHover ? "rgba(200, 212, 224, 0.4)" : "rgba(200, 212, 224, 0.2)";
+  drawRoundedRect(ctx, helpBtnRect.x, helpBtnRect.y, helpBtnRect.w, helpBtnRect.h, 20);
+  ctx.fill(); 
+  drawDialogue();
+  if (puzzleActive) drawPuzzle();
+  if (showHelp) drawHelp(); 
+}
+// klavuz 
+function drawHelp() {
+  ctx.save(); 
+  // Arka plan paneli
+  ctx.fillStyle = "rgba(255, 255, 255, 0.95)"; 
+  ctx.fillRect(240, 120, 550, 420); // Yüksekliği biraz artırdım taşmaması için
+  // Başlık: Kahverengi (#8b4a3a)
+  ctx.font = "36px 'Zeyada', cursive"; 
+  ctx.fillStyle = "#8b4a3a"; 
+  ctx.textAlign = "left";
+  ctx.fillText("Nasıl Oynanır?", 280, 165);
+  // Kapatma butonu (X)
+  ctx.textAlign = "right"; 
+  ctx.font = "22px sans-serif"; 
+  ctx.fillStyle = "black"; 
+  ctx.fillText("✕", 745, 155); 
+  ctx.textAlign = "left";
 
-    function completeAct() {
-        sounds.transform.play();
-        illuminatedAreas.push(acts[currentAct].colorArea);
-        puzzleActive = false; puzzleCompleted = true;
-        setTimeout(() => {
-            if (currentAct < acts.length - 1) {
-                currentAct++; collectedText = ""; puzzleCompleted = false; textAlpha = 0;
-            } else { gameState = "WIN"; }
-        }, 4000);
+  const rules = [
+   "- Kelebeği W A S D tuşlarıyla hareket ettirin",
+    "- Kelebek etrafındaki odayi keşfederken gizli nesneleri bulun",
+    "- Parlayan nesnelere yaklaşın ve Enter'a basın ya da tıklayın",
+    "- Sol fare tuşuyla harf etrafında kemend çizin",
+    "- Gerekli harfleri topla, sözlerin eksik satırlarını tamamlayın!",
+    "- Zamanı ve ipliğinizi dikkatli kullanın",
+    "- Yanlış harf iplik sayısını azaltır!"
+  ];
+
+  for (let i = 0; i < rules.length; i++) {
+    // Madde işareti/Emoji (Siyah)
+    ctx.font = "20px sans-serif"; 
+    ctx.fillStyle = "black";
+    const emoji = rules[i].split(' ')[0]; 
+    ctx.fillText(emoji, 280, 220 + (i * 45));
+    
+    // Kural Metni (Siyah ve daha küçük font)
+    ctx.font = "22px 'Zeyada', cursive";
+    const text = rules[i].substring(emoji.length + 1); 
+    
+    // Eğer metin çok uzunsa taşmaması için wrapText mantığına benzer bir sınır:
+    ctx.fillText(text, 310, 220 + (i * 45));
+  }
+  ctx.restore();
+}
+// Diyalog kutusunu çizen fonksiyon, metni yavaşça görünür yaparak oyuncunun hikayeye daha fazla dalmasını sağlar ve her aktın sonunda başarı diyalogunu gösterir
+function drawDialogue() {
+  ctx.save(); ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; ctx.fillRect(0, 550, 670, 109);
+  if (textAlpha < 1) textAlpha += 0.01;
+  ctx.globalAlpha = textAlpha; ctx.fillStyle = "black"; ctx.font = "22px 'Zeyada', cursive";
+  ctx.textAlign = "left"; wrapText(ctx, currentDialog, 10, 573, 650, 25); ctx.restore();
+}
+// Bulmaca ekranını çizen fonksiyon, hedef cümleyi, ipuçlarını, kalan zamanı ve ipliği gösterir, ayrıca aktif harfleri ve kemend efektlerini yönetir
+function drawPuzzle() {
+ // Puzzle ekranı çizimi
+const act = ACTS[currentActIndex]; ctx.save(); ctx.fillStyle = "black"; //ctx.fillRect(700, 50, 290, 500)
+  ctx.textAlign = "center"; ctx.font = "15px 'Zeyada', cursive";
+  wrapText(ctx, '"' + act.puzzleStr2 + '"', 847, 100, 160, 18);
+  ctx.textAlign = "right"; ctx.fillStyle = "#8b4a3a"; ctx.font = "18px 'Zeyada', cursive"; // İpucu metni
+  if (act.hintText) ctx.fillText("- " + act.hintText, 920, 170);
+  ctx.textAlign = "center"; ctx.fillStyle = "black"; ctx.font = "18px 'Zeyada', cursive";  // Hedef cümle
+  wrapText(ctx, getMaskedPhrase() || "......", 836, 195, 230, 26);
+  ctx.strokeStyle = "#D3D3D3"; ctx.lineWidth = 0; ctx.stroke();
+  ctx.textAlign = "left"; ctx.font = "25px 'Zeyada', cursive"; ctx.fillText( lassoCount, 720, 35);// Kalan lasso sayısı
+  let minutes = Math.floor(timeLeft / 60), seconds = timeLeft % 60;
+  ctx.textAlign = "right"; ctx.fillText(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`, 870, 575);// Kalan süre
+  ctx.stroke();
+  ctx.textAlign = "left"; ctx.font = "32px 'Zeyada', cursive"; // Toplanan harfler kutusu
+  for (const l of activeLetters) { ctx.fillStyle = "black"; ctx.fillText(l.char, l.x, l.y + 25); }
+  ctx.font = "24px 'Zeyada', cursive";// Toplanan harfler kutusuna taşınan harfler, doğruysa yeşil, yanlışsa kahverengi renkte gösterilir
+  for (const l of boxLetters) { ctx.fillStyle = l.isCorrect ? "#4a7c59" : "#8b4a3a"; ctx.fillText(l.char, l.x, l.y + 15); }
+  for (let i = particles.length - 1; i >= 0; i--) {
+      let p = particles[i]; p.life -= 0.05;
+      if (p.life <= 0) particles.splice(i, 1);
+      else { ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI * 2); ctx.fillStyle = `rgba(200, 212, 224, ${p.life})`; ctx.fill(); } 
+  }
+  for (let i = scoreTexts.length - 1; i >= 0; i--) {  //
+      let s = scoreTexts[i]; s.life -= 0.02; s.y -= 1;
+      if (s.life <= 0) scoreTexts.splice(i, 1);
+      else {
+          ctx.font = "20px 'Zeyada', cursive"; //kelimeler seçildiğinde doğruysa +1 yazar, yanlışsa lasso -1 ekselir
+          ctx.fillStyle = s.text === "+1" ? `rgba(74, 124, 89, ${s.life})` : `rgba(139, 74, 58, ${s.life})`;
+          ctx.fillText(s.text, s.x, s.y);
+      }
+  }
+  if (lassoPoints.length > 0) { // Kemend çizimi, kalan ipliğe bağlı olarak rengini ve şeffaflığını değiştirir, ayrıca hareketli bir kesikli çizgi efekti verir
+    ctx.strokeStyle = `rgba(112, 56, 0, ${currentInk/maxInk})`; ctx.lineWidth = 3; ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+    for (let i=1; i<lassoPoints.length; i++) ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
+function mainLoop(time) {
+  const dt = (time - lastTime) / 1000; lastTime = time;
+  ctx.clearRect(0, 0, 1000, 600);
+  if (gameState === "VICTORY") { // Zafer durumunda sadece arka planı ve yazı çiz, diğer her şeyi atla
+    if (images['son']) ctx.drawImage(images['son'], 0, 0, 1000, 600);
+    else { ctx.fillStyle = "#000"; ctx.fillRect(0,0,1000,600); }
+    ctx.font = "20px 'Zeyada', cursive";
+    ctx.fillText("Tekrar oynamak için tıklayın veya Enter'a basın", 500, 450);
+    requestAnimationFrame(mainLoop);
+    return; // Döngü burada kalsın ama eventler çalışmaya devam eder
+  }
+if (waitingForPiano) {
+    pianoWaitTimer -= dt;
+    if (pianoWaitTimer <= 0) {
+        waitingForPiano = false; // 10 saniye dolunca pencere ışığı tetiklenir
     }
-
-    // --- ЦИКЛ ОТРИСОВКИ ---
-    function mainLoop() {
-        ctx.clearRect(0, 0, 1000, 600);
-        if (gameState === "MENU") drawMenu();
-        else drawRoom();
-        requestAnimationFrame(mainLoop);
+}
+  //kelebek nerede ve nasıl yürütülür
+  if (gameState === "MENU") drawMenu();
+  else if (gameState === "ROOM" || gameState === "PUZZLE") {
+    if (!puzzleActive && !showHelp) {
+      if (keys['w'] && kelebek.y > 30) kelebek.y -= kelebek.speed;
+      if (keys['s'] && kelebek.y < 570) kelebek.y += kelebek.speed;
+      if (keys['a'] && kelebek.x > 20) kelebek.x -= kelebek.speed;
+      if (keys['d'] && kelebek.x < 980) kelebek.x += kelebek.speed;
     }
-
-    function drawMenu() {
-        ctx.drawImage(assets.intro, 0, 0, 1000, 600);
-        ctx.fillStyle = "black"; ctx.font = "60px 'Zeyada'"; ctx.textAlign = "center";
-        ctx.fillText("HUZME", 500, 80);
-        ctx.fillStyle = (mouse.x > 405 && mouse.x < 595 && mouse.y > 300 && mouse.y < 348) ? "#B2D8B2" : "#D3D3D3";
-        drawRoundedRect(ctx, 405, 300, 190, 48, 15); ctx.fill();
-        ctx.fillStyle = "black"; ctx.font = "30px 'Zeyada'"; ctx.fillText("BAŞLA", 500, 335);
-    }
-
-    function drawRoom() {
-        ctx.drawImage(assets.roomRenkli, 0, 0, 1000, 600);
-        tempCtx.clearRect(0, 0, 1000, 600);
-        tempCtx.drawImage(assets.roomSiyah, 0, 0, 1000, 600);
-        tempCtx.globalCompositeOperation = 'destination-out';
-        
-        if (!puzzleCompleted) {
-            tempCtx.beginPath(); tempCtx.arc(kelebek.x, kelebek.y, 80, 0, Math.PI*2); tempCtx.fill();
-            updateKelebek();
-        }
-        illuminatedAreas.forEach(a => tempCtx.fillRect(a.x, a.y, a.w, a.h));
-        
-        tempCtx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(tempCanvas, 0, 0, 1000, 600);
-
-        if (puzzleCompleted) ctx.drawImage(assets.hero, 150, 240, 350, 350);
-        else ctx.drawImage(assets.kelebek, kelebek.x - 185, kelebek.y - 178, 400, 400);
-
-        drawDialogue();
-        drawPuzzle();
-    }
-
-    function updateKelebek() {
-        if (keys['w'] && kelebek.y > 30) kelebek.y -= kelebek.speed;
-        if (keys['s'] && kelebek.y < 480) kelebek.y += kelebek.speed;
-        if (keys['a'] && kelebek.x > 20) kelebek.x -= kelebek.speed;
-        if (keys['d'] && kelebek.x < 620) kelebek.x += kelebek.speed;
-    }
-
-    function drawDialogue() {
-        ctx.save();
-        ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; ctx.fillRect(0, 550, 670, 100);
-        if (textAlpha < 1) textAlpha += 0.01;
-        ctx.globalAlpha = textAlpha; ctx.fillStyle = "black"; ctx.font = "22px 'Zeyada'";
-        ctx.textAlign = "left"; ctx.fillText(acts[currentAct].dialogue, 20, 580);
-        ctx.restore();
-    }
-
-    function drawPuzzle() {
-        if (!puzzleActive) return;
-        ctx.save();
-        // Тетрадка и Фраза
-        ctx.font = "24px 'Zeyada'"; ctx.fillStyle = "black"; ctx.textAlign = "center";
-        let disp = "";
-        const target = acts[currentAct].target;
-        for(let i=0; i<target.length; i++) {
-            if (target[i] === " ") disp += "  ";
-            else disp += (collectedText[i] || "_") + " ";
-        }
-        ctx.fillText(disp, 840, 100);
-        ctx.font = "16px 'Zeyada'"; ctx.fillText(acts[currentAct].secondLine, 840, 130);
-        
-        // Буквы и Лассо
-        letters.forEach(l => { if (!l.isFound) ctx.fillText(l.char, l.x, l.y); });
-        if (isDrawing && lassoPoints.length > 2) {
-            ctx.beginPath(); ctx.strokeStyle = "rgba(41, 128, 185, 0.7)"; ctx.lineWidth = 3;
-            ctx.setLineDash([5, 5]); ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
-            lassoPoints.forEach(p => ctx.lineTo(p.x, p.y)); ctx.stroke();
-        }
-        
-        // Индикатор чернил
-        ctx.fillStyle = "red"; ctx.fillRect(733, 420, (lassoInk/100)*100, 5);
-        ctx.restore();
-    }
-
-    function drawRoundedRect(c, x, y, w, h, r) {
-        c.beginPath(); c.moveTo(x+r, y); c.lineTo(x+w-r, y); c.quadraticCurveTo(x+w, y, x+w, y+r);
-        c.lineTo(x+w, y+h-r); c.quadraticCurveTo(x+w, y+h, x+w-r, y+h); c.lineTo(x+r, y+h);
-        c.quadraticCurveTo(x, y+h, x, y+h-r); c.lineTo(x, y+r); c.quadraticCurveTo(x, y, x+r, y); c.closePath();
-    }
-
-    mainLoop();
+    drawRoom();
+  } else if (gameState === "GAME_OVER") {
+    ctx.fillStyle = "#000"; ctx.fillRect(0,0,1000,600);
+    ctx.fillStyle = "#8b4a3a"; ctx.textAlign = "center"; ctx.font = "48px 'Zeyada', cursive";
+    ctx.fillText("Lasso hakkınız bitti veya Zaman doldu!", 500, 250);
+    ctx.fillStyle = "#c8d4e0"; ctx.font = "24px 'Zeyada', cursive";
+    ctx.fillText("Yeniden Başlamak İçin Enter veya Boşluk Tuşuna Basın, ya da Tıklayın", 500, 350);
+  }
+  requestAnimationFrame(mainLoop); // Bir sonraki kareyi çizmek için döngüyü devam ettir
+}
+initAssets();
+document.fonts.ready.then(() => requestAnimationFrame(mainLoop));
+//Madina Yusupova 24360859922 - BY PEARL
 </script>
 </body>
 </html>
