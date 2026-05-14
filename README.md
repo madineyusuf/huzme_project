@@ -37,3 +37,4 @@ Projenin mantık yapısı ve hata ayıklama süreçlerinde yapay zeka araçları
 
 ![Oyun İçi Görüntü 1](images/son.png)
 ![Oyun İçi Görüntü 2](images/piano.png)
+![Oyun İçi Görüntü 2](images/siyah.png)
